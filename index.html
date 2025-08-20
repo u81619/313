@@ -2,31 +2,69 @@
 <html lang="ar">
 <head>
   <meta charset="UTF-8">
-  <title>كشف ضغطات الكيبورد</title>
+  <title>موجات المايكروفون</title>
   <style>
-    body {
-      background: #111;
-      color: #0f0;
-      font-family: monospace;
-      text-align: center;
-      padding-top: 100px;
-    }
-    #output {
-      font-size: 40px;
-      margin-top: 20px;
-    }
+    body { background:#111; color:#0f0; text-align:center; font-family:Arial; }
+    canvas { background:#000; display:block; margin:20px auto; border:1px solid #333; }
   </style>
 </head>
 <body>
-  <h1>اضغط أي زر من كيبورد اللابتوب</h1>
-  <div id="output">...</div>
+  <h1>🎤 موجات صوت الكيبورد (من المايك)</h1>
+  <p>اضغط "سماح" للمايك حتى تبين الموجات</p>
+  <canvas id="oscilloscope" width="600" height="200"></canvas>
 
   <script>
-    const output = document.getElementById("output");
+    const canvas = document.getElementById("oscilloscope");
+    const ctx = canvas.getContext("2d");
 
-    document.addEventListener("keydown", (event) => {
-      output.textContent = `الحرف المضغوط: ${event.key}`;
-    });
+    async function initMic() {
+      try {
+        // طلب إذن المايكروفون
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+
+        source.connect(analyser);
+        analyser.fftSize = 2048;
+
+        const bufferLength = analyser.fftSize;
+        const dataArray = new Uint8Array(bufferLength);
+
+        function draw() {
+          requestAnimationFrame(draw);
+          analyser.getByteTimeDomainData(dataArray);
+
+          ctx.fillStyle = "#000";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "#0f0";
+          ctx.beginPath();
+
+          const sliceWidth = canvas.width / bufferLength;
+          let x = 0;
+
+          for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = v * canvas.height/2;
+
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+
+            x += sliceWidth;
+          }
+          ctx.lineTo(canvas.width, canvas.height/2);
+          ctx.stroke();
+        }
+
+        draw();
+      } catch (err) {
+        alert("مايك غير متاح أو تم الرفض: " + err.message);
+      }
+    }
+
+    initMic();
   </script>
 </body>
 </html>
